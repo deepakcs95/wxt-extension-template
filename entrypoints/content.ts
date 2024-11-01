@@ -1,62 +1,69 @@
-import { EXTENSION_URL } from "@/lib/constants";
-
 export default defineContentScript({
-  matches: ["https://695c-178-248-117-190.ngrok-free.app/dashboard"],
+  matches: ["*://967c-178-248-117-190.ngrok-free.app/*"],
   main() {
-    console.log("Hello content.");
+    console.log(" CONTENT LOADED");
     run();
   },
 });
 
-interface AuthMessage {
-  type: "AUTH_SUCCESS";
-  token: string;
-  timestamp?: number;
+export interface AuthMessage {
+  type: "AUTH_SUCCESS" | "AUTH_ERROR" | "AUTH_LOGOUT";
+  token?: string;
+  error?: string;
+  userInfo?: Record<string, any>; // Allows for additional user information in future
+}
+
+const allowedOrigins = ["http://localhost:3000", "https://967c-178-248-117-190.ngrok-free.app"];
+
+function isOriginAllowed(origin: string): boolean {
+  return allowedOrigins.includes(origin);
+}
+
+function handleAuthMessage(message: AuthMessage) {
+  if (message.token) {
+    // Forward the token to the background script
+    forwardMessage(message);
+    console.log("Auth token forwarded to background script");
+  } else {
+    // Handle error if type is not AUTH_SUCCESS or token is missing
+    handleAuthError("Invalid authentication message format");
+  }
+}
+
+function forwardMessage(message: AuthMessage) {
+  chrome.runtime.sendMessage(message).catch((error) => console.log(error));
+}
+
+function handleAuthError(errorMessage: string) {
+  console.error("Error:", errorMessage);
+  forwardMessage({
+    type: "AUTH_ERROR",
+    error: errorMessage,
+  });
 }
 
 function run() {
   window.addEventListener("message", function (event) {
     // Security check: Verify the origin of the message
-    console.warn("Received message from unauthorized origin:", event.data);
-    // Replace with your actual domain
-    const allowedOrigins = ["http://localhost:3000", EXTENSION_URL];
 
-    if (!allowedOrigins.includes(event.origin)) {
-      console.warn("Received message from unauthorized origin:", event.data);
+    if (!isOriginAllowed(event.origin)) {
+      //  console.log("Received message from unauthorized origin:", event.origin);
       return;
     }
-    try {
-      const message = event.data as AuthMessage;
 
-      // Check if it's our auth message
-      if (message.type === "AUTH_SUCCESS" && message.token) {
-        // Calculate token expiration (example: 1 hour)
-        const expiresIn = 3600; // seconds
+    const message = event.data as AuthMessage;
+    console.log("message : ", message.type);
 
-        // Send the token to the extension's background script
-        chrome.runtime.sendMessage({
-          type: "AUTH_SUCCESS",
-          token: message.token,
-          expiresIn: expiresIn,
-          timestamp: message.timestamp || Date.now(),
-        });
-
-        console.log("Auth token forwarded to background script");
-
-        // Optional: Show a notification
-        chrome.runtime.sendMessage({
-          type: "SHOW_NOTIFICATION",
-          message: "Successfully authenticated!",
-        });
-      }
-    } catch (error) {
-      console.error("Error processing message:", error);
-
-      // Notify background script of error
-      chrome.runtime.sendMessage({
-        type: "AUTH_ERROR",
-        error: "Failed to process authentication message",
-      });
+    switch (message.type) {
+      case "AUTH_SUCCESS":
+        handleAuthMessage(message);
+        break;
+      case "AUTH_ERROR":
+        forwardMessage(message);
+        break;
+      case "AUTH_LOGOUT":
+        forwardMessage(message);
+        break;
     }
   });
 }
