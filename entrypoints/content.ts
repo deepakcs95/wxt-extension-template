@@ -1,8 +1,10 @@
+import { Message } from "@/lib/types";
+
 export default defineContentScript({
-  matches: ["*://967c-178-248-117-190.ngrok-free.app/*"],
+  matches: ["https://8cea-178-248-117-190.ngrok-free.app/*"],
   main() {
     console.log(" CONTENT LOADED");
-    run();
+    new ContentScriptMessageHandler();
   },
 });
 
@@ -13,57 +15,56 @@ export interface AuthMessage {
   userInfo?: Record<string, any>; // Allows for additional user information in future
 }
 
-const allowedOrigins = ["http://localhost:3000", "https://967c-178-248-117-190.ngrok-free.app"];
+const allowedOrigins = ["http://localhost:3000", "https://8cea-178-248-117-190.ngrok-free.app"];
 
-function isOriginAllowed(origin: string): boolean {
-  return allowedOrigins.includes(origin);
-}
+class ContentScriptMessageHandler {
+  private port: chrome.runtime.Port;
 
-function handleAuthMessage(message: AuthMessage) {
-  if (message.token) {
-    // Forward the token to the background script
-    forwardMessage(message);
-    console.log("Auth token forwarded to background script");
-  } else {
-    // Handle error if type is not AUTH_SUCCESS or token is missing
-    handleAuthError("Invalid authentication message format");
+  constructor() {
+    this.port = chrome.runtime.connect({ name: "content-script" });
+    this.setupMessageListener();
   }
-}
 
-function forwardMessage(message: AuthMessage) {
-  chrome.runtime.sendMessage(message).catch((error) => console.log(error));
-}
+  private setupMessageListener(): void {
+    // Only listen for messages from the webpage
+    window.addEventListener("message", (event) => {
+      if (!this.isOriginAllowed(event.origin)) {
+        console.debug("Ignored message from unauthorized origin:", event.origin);
+        return;
+      }
 
-function handleAuthError(errorMessage: string) {
-  console.error("Error:", errorMessage);
-  forwardMessage({
-    type: "AUTH_ERROR",
-    error: errorMessage,
-  });
-}
+      const message = event.data as Message;
+      if (!message || !message.type) {
+        return;
+      }
 
-function run() {
-  window.addEventListener("message", function (event) {
-    // Security check: Verify the origin of the message
+      // Forward only to background, no need to send back to webpage
+      this.forwardToBackground(message);
+    });
+  }
 
-    if (!isOriginAllowed(event.origin)) {
-      //  console.log("Received message from unauthorized origin:", event.origin);
-      return;
+  private isOriginAllowed(origin: string): boolean {
+    return allowedOrigins.includes(origin);
+  }
+
+  private forwardToBackground(message: Message): void {
+    try {
+      this.port.postMessage({
+        ...message,
+        timestamp: Date.now(),
+      });
+    } catch (error) {
+      console.error("Failed to forward message to background:", error);
+      this.handleError("Failed to forward message to extension");
     }
+  }
 
-    const message = event.data as AuthMessage;
-    console.log("message : ", message.type);
-
-    switch (message.type) {
-      case "AUTH_SUCCESS":
-        handleAuthMessage(message);
-        break;
-      case "AUTH_ERROR":
-        forwardMessage(message);
-        break;
-      case "AUTH_LOGOUT":
-        forwardMessage(message);
-        break;
-    }
-  });
+  private handleError(errorMessage: string): void {
+    const errorMsg: Message = {
+      type: "AUTH_ERROR",
+      error: errorMessage,
+      timestamp: Date.now(),
+    };
+    this.port.postMessage(errorMsg);
+  }
 }

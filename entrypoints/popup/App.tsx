@@ -1,35 +1,104 @@
-import { useState } from "react";
-import reactLogo from "@/assets/react.svg";
-import wxtLogo from "/wxt.svg";
-import "./App.css";
-import { Button } from "@/components/Button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/Tabs";
+import { AuthStatusResponseMessage, Message, User } from "@/lib/types";
+import React, { useEffect, useState } from "react";
 
-function App() {
-  const [count, setCount] = useState(0);
-
-  return (
-    <>
-      <div>
-        <Tabs defaultValue="account" className="w-[400px]">
-          <TabsList>
-            <TabsTrigger value="account">Account</TabsTrigger>
-            <TabsTrigger value="password">Password</TabsTrigger>
-          </TabsList>
-          <TabsContent value="account">Make changes to your account here.</TabsContent>
-          <TabsContent value="password">Change your password here.</TabsContent>
-        </Tabs>
-      </div>
-      <h1>WXT + React</h1>
-      <div className="card h-2 bg-transparent">
-        <Button>dfdf</Button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="boder ">Click on the WXT and React logos to learn more</p>
-    </>
-  );
+interface AuthState {
+  isAuthenticated: boolean;
+  userInfo: User | null;
 }
 
-export default App;
+export default function Popup() {
+  const [authState, setAuthState] = useState<AuthState>({
+    isAuthenticated: false,
+    userInfo: null,
+  });
+
+  const [port, setPort] = useState<chrome.runtime.Port | null>(null);
+
+  useEffect(() => {
+    const port = chrome.runtime.connect({ name: "popup" });
+    setPort(port);
+
+    port.onMessage.addListener((message: Message) => {
+      handleMessage(message);
+    });
+
+    // Request initial auth status
+    port.postMessage({ type: "GET_AUTH_STATUS" });
+
+    return () => {
+      port.disconnect();
+    };
+  }, []);
+
+  const handleMessage = (message: Message) => {
+    switch (message.type) {
+      case "AUTH_STATUS_RESPONSE":
+        const response = message as AuthStatusResponseMessage;
+        console.log(message);
+
+        setAuthState({
+          isAuthenticated: response.isAuthenticated,
+          userInfo: response.user || null,
+        });
+        break;
+      case "AUTH_SUCCESS":
+        setAuthState({
+          isAuthenticated: true,
+          userInfo: message.user,
+        });
+        break;
+      case "AUTH_LOGOUT":
+        setAuthState({
+          isAuthenticated: false,
+          userInfo: null,
+        });
+        break;
+    }
+  };
+
+  const handleLogout = () => {
+    if (port) {
+      port.postMessage({ type: "AUTH_LOGOUT" });
+    }
+  };
+
+  return (
+    <div className="p-4 w-80">
+      <h1 className="text-xl font-bold mb-4">Extension Status</h1>
+
+      <div className="mb-4">
+        <div className="flex items-center space-x-2">
+          <div
+            className={`w-3 h-3 rounded-full ${
+              authState.isAuthenticated ? "bg-green-500" : "bg-red-500"
+            }`}
+          />
+          <span>{authState.isAuthenticated ? "Authenticated" : "Not authenticated"}</span>
+        </div>
+      </div>
+
+      {authState.isAuthenticated && authState.userInfo && (
+        <div className="mb-4">
+          <h2 className="font-semibold mb-2">User Info</h2>
+          <div className="bg-gray-100 p-2 rounded">
+            <p className="text-sm">
+              <strong>Name:</strong> {authState.userInfo.name}
+            </p>
+            <p className="text-sm">
+              <strong>Email:</strong> {authState.userInfo.email}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {authState.isAuthenticated && (
+        <button
+          onClick={handleLogout}
+          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors"
+        >
+          Logout
+        </button>
+      )}
+    </div>
+  );
+}
