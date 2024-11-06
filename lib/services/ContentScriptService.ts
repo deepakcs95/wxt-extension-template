@@ -3,36 +3,24 @@ import { ALLOWED_ORIGINS } from "../constants";
 import { IContentScriptService } from "../interfaces/IContentScriptService";
 import { Action, ActionContext } from "../interfaces/IActionSuggestionService";
 import { createRoot } from "react-dom/client";
-import React, { createElement } from "react";
-import { SmartToolbar, ToolbarProps } from "../components/SmartToolbar.js";
-
+import { SmartToolbar } from "../components/SmartToolbar";
 export class ContentScriptService implements IContentScriptService {
   private port: chrome.runtime.Port;
   private lastSelection: string | null = null;
   private selectionTimeout: NodeJS.Timeout | null = null;
-  private toolbar: React.FC<ToolbarProps> | null = null;
-  private root: ReturnType<typeof createRoot> | null = null;
-  private container: HTMLElement | null = null;
+  private toolbar: SmartToolbar | null = null;
 
   constructor() {
     this.port = chrome.runtime.connect({ name: "content-script" });
     this.initialize();
     this.setupMessageListener();
-    this.initializeContainer();
+    // this.initializeContainer();
   }
 
   public initialize(): void {
     this.setupSelectionListener();
     this.setupScrollListener();
     this.monitorClipboard();
-  }
-
-  private initializeContainer(): void {
-    // Create container and root only once
-    this.container = document.createElement("div");
-    this.container.id = "copilot-toolbar-container";
-    document.body.appendChild(this.container);
-    this.root = createRoot(this.container);
   }
 
   public handleTextSelection(): void {
@@ -48,6 +36,7 @@ export class ContentScriptService implements IContentScriptService {
       if (selectionText && selectionText !== this.lastSelection && selectionText.length > 3) {
         this.lastSelection = selectionText;
         this.showToolbar(selection!);
+
         this.sendToBackgroundService(selectionText);
       } else if (!selection) {
         this.removeToolbar();
@@ -82,26 +71,24 @@ export class ContentScriptService implements IContentScriptService {
   }
 
   public showToolbar(selection: Selection): void {
-    console.log("🎯 Showing toolbar for selection:", selection.toString(), this.root);
+    this.removeToolbar();
 
-    if (!this.root || !this.container) {
-      this.initializeContainer();
+    this.toolbar = new SmartToolbar();
+    const range = window.getSelection()?.getRangeAt(0);
+    const rect = range?.getBoundingClientRect();
+
+    if (rect) {
+      this.toolbar.show(rect);
     }
-
-    const props: ToolbarProps = {
-      selection: window.getSelection() as Selection,
-      onAction: () => {},
-      onClose: this.removeToolbar,
-    };
-
-    this.root?.render(createElement(SmartToolbar, props));
   }
 
   public removeToolbar(): void {
-    if (this.root) {
-      this.root.render(null);
+    if (this.toolbar) {
+      this.toolbar.remove();
+      this.toolbar = null;
     }
   }
+
   public sendToBackgroundService(text: string): void {
     try {
       this.port.postMessage({
@@ -125,20 +112,33 @@ export class ContentScriptService implements IContentScriptService {
   private setupSelectionListener(): void {
     document.addEventListener("mouseup", (e) => {
       // Check if the click is inside the toolbar
-
-      if ((e.target as HTMLElement).closest(".copilot-toolbar")) {
-        return;
+      if (this.toolbar && (e.target as HTMLElement).closest(".copilot-toolbar")) {
+        return; // Don't process selection changes if clicking inside toolbar
       }
 
-      const selection = window.getSelection();
-      const text = selection?.toString().trim();
-
-      if (!text) {
-        this.removeToolbar();
-        return;
+      if (this.selectionTimeout) {
+        clearTimeout(this.selectionTimeout);
       }
 
-      this.showToolbar(selection!);
+      this.selectionTimeout = setTimeout(() => {
+        const selection = window.getSelection();
+
+        const selectionText = selection ? selection.toString().trim() : null;
+
+        if (!selectionText || selectionText.length <= 3) {
+          // Only remove toolbar if click was outside toolbar
+          if (!this.toolbar || !(e.target as HTMLElement).closest(".copilot-toolbar")) {
+            this.removeToolbar();
+          }
+          return;
+        }
+
+        if (selection !== this.lastSelection) {
+          this.lastSelection = selectionText;
+          this.showToolbar(selection!);
+          this.sendToBackgroundService(selectionText!);
+        }
+      }, 300);
     });
   }
 
@@ -176,7 +176,7 @@ export class ContentScriptService implements IContentScriptService {
     // suggestions.forEach((suggestion) => {
     //   const button = document.createElement("button");
     //   button.className = "suggestion-button";
-    //   button.innerHTML = `
+    //   button.innerHTML = `;
     //     <span class="icon">${suggestion.icon}</span>
     //     <span class="title">${suggestion.title}</span>
     //   `;

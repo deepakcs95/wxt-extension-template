@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+// import {
+//   DropdownMenuContent ,
+//   DropdownMenuLabel,
+//   DropdownMenuSeparator,
+//   DropdownMenu,
+//   DropdownMenuTrigger,
+// } from "./ui/Dropdow";
+import { DropdownMenuItem } from "./ui/Dropdow";
 
 export interface ToolbarProps {
   selection: Selection | null;
@@ -36,6 +44,8 @@ export const SmartToolbar: React.FC<ToolbarProps> = ({ selection, onAction, onCl
 
   if (!selection || !position.top || !position.left) return null;
 
+  console.log("🔵 SmartToolbar", position, selection);
+
   return createPortal(
     <div
       className="fixed z-50 transform -translate-x-1/2 "
@@ -54,6 +64,18 @@ export const SmartToolbar: React.FC<ToolbarProps> = ({ selection, onAction, onCl
         </div>
 
         <div className="space-y-1">
+          {/* <DropdownMenu>
+            <DropdownMenuTrigger>Open</DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>Profile</DropdownMenuItem>
+              <DropdownMenuItem>Billing</DropdownMenuItem>
+              <DropdownMenuItem>Team</DropdownMenuItem>
+              <DropdownMenuItem>Subscription</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu> */}
+
           {suggestions.map((suggestion) => (
             <button
               key={suggestion.id}
