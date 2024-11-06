@@ -39,7 +39,7 @@ export class BackgroundService implements IBackgroundService {
 
   private setupConnectionListener(): void {
     chrome.runtime.onConnect.addListener((port) => {
-      console.log("NEW_CONNECTION", { port: port.name });
+      //   console.log("NEW_CONNECTION", { port: port.name });
       this.ports.push(port);
 
       port.onDisconnect.addListener(() => {

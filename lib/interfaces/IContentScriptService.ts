@@ -3,7 +3,7 @@ export interface IContentScriptService {
   handleTextSelection(): void;
   monitorClipboard(): void;
   setupMessageListener(): void;
-  showToolbar(selection: string): void;
+  showToolbar(selection: Selection): void;
   sendToBackgroundService(text: string): void;
   removeToolbar(): void;
 }
