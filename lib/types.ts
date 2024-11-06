@@ -12,6 +12,7 @@ export type User = {
 
 export interface BaseMessage {
   type: MessageType;
+  from: "content-script" | "popup" | "background" | "options" | "chrome";
   id?: string;
   timestamp?: number;
 }

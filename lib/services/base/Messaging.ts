@@ -5,14 +5,14 @@ export abstract class MessageService {
 
   protected removePort(port: chrome.runtime.Port): void {
     this.ports = this.ports.filter((p) => p !== port);
-    console.warn("PORT_REMOVED", { activeConnections: this.ports.length });
+    // console.log("🔗 PORT_REMOVED", { activeConnections: this.ports.length });
   }
 
   protected isPortConnected(port: chrome.runtime.Port): boolean {
     try {
       return !("disconnected" in port) || !port.disconnected;
     } catch (error) {
-      console.warn("PORT_CONNECTION_CHECK_ERROR", { error });
+      console.log("🚨 PORT_CONNECTION_CHECK_ERROR", { error });
       return false;
     }
   }
@@ -21,7 +21,7 @@ export abstract class MessageService {
     message: Message,
     senderPort: chrome.runtime.Port | null
   ): Promise<void> {
-    console.warn("BROADCASTING_MESSAGE", { message });
+    // console.log("➡️ BROADCASTING_MESSAGE", { message });
 
     const connectedPorts = this.ports.filter((port) => this.isPortConnected(port));
 
@@ -37,7 +37,7 @@ export abstract class MessageService {
             timestamp: Date.now(),
           });
         } catch (error) {
-          console.warn("MESSAGE_BROADCAST_ERROR", { error });
+          console.log("🚨 MESSAGE_BROADCAST_ERROR", { error });
           this.removePort(port);
         }
       }

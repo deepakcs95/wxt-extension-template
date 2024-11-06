@@ -17,16 +17,28 @@ export class ContentScriptService {
       }
 
       const message = event.data as Message;
-      if (!message || !message.type) {
+
+      if (!message || !message.type || !message.from) {
         return;
       }
+      console.log("🔽 MESSAGE_RECEIVED", message.type);
 
       this.forwardToBackground(message);
     });
   }
 
   private isOriginAllowed(origin: string): boolean {
-    return ALLOWED_ORIGINS.includes(origin);
+    const normalizedOrigin = origin.replace(/\/$/, "");
+
+    return ALLOWED_ORIGINS.some((allowedOrigin) => {
+      // Convert wildcard pattern to regex
+      const pattern = allowedOrigin
+        .replace(/\./g, "\\.") // Escape dots
+        .replace(/\*$/, "[0-9]*") // Convert * at the end to match port numbers
+        .replace(/\*/g, ".*"); // Convert remaining * to .*
+      const regex = new RegExp(`^${pattern}$`);
+      return regex.test(normalizedOrigin);
+    });
   }
 
   private forwardToBackground(message: Message): void {
@@ -34,7 +46,10 @@ export class ContentScriptService {
       this.port.postMessage({
         ...message,
         timestamp: Date.now(),
+        from: "content-script",
       });
+
+      console.log("➡️ MESSAGE_FORWARDED", message.type);
     } catch (error) {
       console.warn("MESSAGE_FORWARD_ERROR", { error });
       this.handleError("FORWARD_MESSAGE_FAILED");
@@ -45,6 +60,7 @@ export class ContentScriptService {
     const errorMsg: Message = {
       type: "AUTH_ERROR",
       error: errorMessage,
+      from: "content-script",
       timestamp: Date.now(),
     };
     this.port.postMessage(errorMsg);

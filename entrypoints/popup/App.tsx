@@ -1,20 +1,34 @@
+import { ALLOWED_ORIGINS } from "@/lib/constants";
 import { AuthStatusResponseMessage, Message, User } from "@/lib/types";
 import React, { useEffect, useState } from "react";
 
 interface AuthState {
   isAuthenticated: boolean;
   userInfo: User | null;
+  isLoading: boolean;
 }
 
-export default function Popup() {
+function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     userInfo: null,
+    isLoading: true,
   });
 
   const [port, setPort] = useState<chrome.runtime.Port | null>(null);
 
   useEffect(() => {
+    // First try to get data from storage
+    chrome.storage.local.get(["authState"], (result) => {
+      if (result.authState) {
+        setAuthState({
+          ...result.authState,
+          isLoading: false,
+        });
+      }
+    });
+
+    // Then connect to service worker for real-time updates
     const port = chrome.runtime.connect({ name: "popup" });
     setPort(port);
 
@@ -22,7 +36,7 @@ export default function Popup() {
       handleMessage(message);
     });
 
-    // Request initial auth status
+    // Still request auth status to ensure we're in sync
     port.postMessage({ type: "GET_AUTH_STATUS" });
 
     return () => {
@@ -34,24 +48,34 @@ export default function Popup() {
     switch (message.type) {
       case "AUTH_STATUS_RESPONSE":
         const response = message as AuthStatusResponseMessage;
-        console.log(message);
-
-        setAuthState({
+        const newState = {
           isAuthenticated: response.isAuthenticated,
           userInfo: response.user || null,
-        });
+          isLoading: false,
+        };
+        setAuthState(newState);
+        // Update storage
+        chrome.storage.local.set({ authState: newState });
         break;
       case "AUTH_SUCCESS":
-        setAuthState({
+        const successState = {
           isAuthenticated: true,
           userInfo: message.user,
-        });
+          isLoading: false,
+        };
+        setAuthState(successState);
+        // Update storage
+        chrome.storage.local.set({ authState: successState });
         break;
       case "AUTH_LOGOUT":
-        setAuthState({
+        const logoutState = {
           isAuthenticated: false,
           userInfo: null,
-        });
+          isLoading: false,
+        };
+        setAuthState(logoutState);
+        // Update storage
+        chrome.storage.local.set({ authState: logoutState });
         break;
     }
   };
@@ -61,6 +85,31 @@ export default function Popup() {
       port.postMessage({ type: "AUTH_LOGOUT" });
     }
   };
+
+  return { authState, handleLogout };
+}
+
+export default function Popup() {
+  const { authState, handleLogout } = useAuth();
+
+  const handleLogin = () => {
+    if (!authState.isAuthenticated) {
+      if (!import.meta.env.VITE_BACKEND_URL) {
+        console.error("Environment variable VITE_BACKEND_URL is not defined");
+        return;
+      }
+      console.log(import.meta.env.VITE_BACKEND_URL);
+      chrome.tabs.create({ url: import.meta.env.VITE_BACKEND_URL + "/auth/sign-in" });
+    }
+  };
+
+  if (authState.isLoading) {
+    return (
+      <div className="p-4 w-80 flex justify-center items-center h-40">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 w-80">
@@ -91,12 +140,19 @@ export default function Popup() {
         </div>
       )}
 
-      {authState.isAuthenticated && (
+      {authState.isAuthenticated ? (
         <button
           onClick={handleLogout}
           className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors"
         >
           Logout
+        </button>
+      ) : (
+        <button
+          onClick={handleLogin}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+        >
+          Login
         </button>
       )}
     </div>
