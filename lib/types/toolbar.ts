@@ -8,12 +8,12 @@ export interface ISuggestion {
 }
 
 export interface IToolbarConfig {
-  width: string;
-  maxSuggestions: number;
-  showConfidenceIndicator: boolean;
-  showCustomizeButton: boolean;
-  theme: "light" | "dark";
-  textColor: string;
+  width?: string;
+  maxSuggestions?: number;
+  showConfidenceIndicator?: boolean;
+  showCustomizeButton?: boolean;
+  theme?: "light" | "dark";
+  textColor?: string;
 }
 
 export interface IToolbarAction {
