@@ -1,0 +1,18 @@
+.copilot-toolbar {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+}
+
+.copilot-toolbar button {
+  background: #0066cc;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.copilot-toolbar button:hover {
+  background: #0052a3;
+}

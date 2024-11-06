@@ -3,7 +3,8 @@ export type MessageType =
   | "AUTH_ERROR"
   | "AUTH_LOGOUT"
   | "GET_AUTH_STATUS"
-  | "AUTH_STATUS_RESPONSE";
+  | "AUTH_STATUS_RESPONSE"
+  | "TEXT_SELECTED";
 
 export type User = {
   name: string;
@@ -42,9 +43,19 @@ export interface AuthStatusResponseMessage extends BaseMessage {
   user: User | null;
 }
 
+export interface TextSelectedMessage extends BaseMessage {
+  type: "TEXT_SELECTED";
+  data: {
+    text: string;
+    url: string;
+    timestamp: number;
+  };
+}
+
 export type Message =
   | AuthSuccessMessage
   | AuthErrorMessage
   | AuthLogoutMessage
   | GetAuthStatusMessage
-  | AuthStatusResponseMessage;
+  | AuthStatusResponseMessage
+  | TextSelectedMessage;

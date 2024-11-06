@@ -1,10 +1,5 @@
+import { AuthState } from "./interfaces/IAuthService";
 import { User } from "./types";
-
-export interface AuthState {
-  token: string | null;
-  user: User | null;
-  isAuthenticated: boolean;
-}
 
 export const StorageKeys = {
   AUTH_STATE: "authState",
